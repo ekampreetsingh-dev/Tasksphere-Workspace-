@@ -103,7 +103,7 @@ export default function QuestsView({ reduced }: { reduced: boolean }) {
               sfx("tap");
             }}
             aria-expanded={composerOpen}
-            className="flex h-9 items-center gap-2 rounded-md bg-accent px-3.5 text-[12.5px] font-bold text-white"
+            className="flex h-9 items-center gap-2 rounded-md bg-accent px-3.5 text-[12.5px] font-bold text-[color:var(--on-accent)]"
           >
             {composerOpen ? <X size={13} aria-hidden /> : <Plus size={13} aria-hidden />}
             {composerOpen ? "Close capture" : "Add quest"}

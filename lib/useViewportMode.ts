@@ -5,12 +5,26 @@ import { useEffect, useMemo, useState } from "react";
 export type Paradigm = "desktop" | "tablet" | "mobile" | "extension";
 
 /**
- * Device paradigm, detected — never chosen. Width alone cannot tell a phone
- * from a toolbar popover (both are ~390px), so the short-and-narrow case is
- * the extension: a Chrome action popup is 380x580, a phone is 390x844.
+ * The popover is a destination, never a guess. Width and height alone cannot
+ * tell a 390x600 toolbar popup from a 390x844 phone whose soft keyboard is
+ * open, and treating the latter as a popup swapped the whole workspace for a
+ * 400px toolbar mid-sentence. Only an explicit ?mode=extension request or an
+ * unpacked-extension origin gets the popover UI.
  */
-function detect(width: number, height: number): Paradigm {
-  if (width <= 420 && height <= 640) return "extension";
+export function extensionRequested(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    if (window.location.protocol === "chrome-extension:") return true;
+    const params = new URLSearchParams(window.location.search);
+    const flag = (params.get("mode") ?? params.get("view") ?? "").toLowerCase();
+    return flag === "extension";
+  } catch {
+    return false;
+  }
+}
+
+function detect(width: number): Paradigm {
+  if (extensionRequested()) return "extension";
   if (width < 820) return "mobile";
   if (width < 1280) return "tablet";
   return "desktop";
@@ -18,7 +32,7 @@ function detect(width: number, height: number): Paradigm {
 
 export function readParadigm(): Paradigm {
   if (typeof window === "undefined") return "desktop";
-  return detect(window.innerWidth, window.innerHeight);
+  return detect(window.innerWidth);
 }
 
 export function useViewportMode() {
@@ -32,8 +46,8 @@ export function useViewportMode() {
   }, []);
 
   const paradigm = useMemo<Paradigm>(
-    () => (size.w > 0 ? detect(size.w, size.h) : readParadigm()),
-    [size.w, size.h],
+    () => (size.w > 0 ? detect(size.w) : readParadigm()),
+    [size.w],
   );
 
   return { paradigm };

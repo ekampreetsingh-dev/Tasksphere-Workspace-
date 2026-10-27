@@ -38,12 +38,22 @@ try {
   document.documentElement.dataset.motion = 'full';
 }
 /* The layout paradigm is decided here too, so the shell renders as a phone on
-   a phone from the very first frame instead of flashing a desktop grid. */
+   a phone from the very first frame instead of flashing a desktop grid.
+   Extension mode is opt-in by URL or extension origin — never by size, or a
+   phone with its keyboard open would swap itself for a 400px toolbar. */
 try {
   var w = window.innerWidth;
-  var h = window.innerHeight;
-  document.documentElement.dataset.paradigm =
-    w <= 420 && h <= 640 ? "extension" : w < 820 ? "mobile" : w < 1280 ? "tablet" : "desktop";
+  var q = new URLSearchParams(window.location.search);
+  var wantsExt =
+    window.location.protocol === "chrome-extension:" ||
+    (q.get("mode") || q.get("view") || "").toLowerCase() === "extension";
+  document.documentElement.dataset.paradigm = wantsExt
+    ? "extension"
+    : w < 820
+      ? "mobile"
+      : w < 1280
+        ? "tablet"
+        : "desktop";
 } catch (e) {
   document.documentElement.dataset.paradigm = "desktop";
 }

@@ -84,6 +84,7 @@ export function normalizeTask(raw: Record<string, unknown>): Task {
     tags: tagsRaw.filter((tag): tag is string => typeof tag === "string").slice(0, 12),
     note: String(raw.note ?? "").slice(0, 280),
     created: Number.isFinite(Number(raw.created)) ? Number(raw.created) : Date.now(),
+    updated: Number.isFinite(Number(raw.updated)) ? Number(raw.updated) : undefined,
     completed,
     completedAt: completed
       ? Number.isFinite(Number(raw.completedAt))

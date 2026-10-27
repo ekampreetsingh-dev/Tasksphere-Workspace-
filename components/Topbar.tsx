@@ -2,8 +2,21 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Coins, Command, Palette, PanelRight, Search, Settings2, Volume2, VolumeX } from "lucide-react";
+import {
+  Coins,
+  Command,
+  Download,
+  ExternalLink,
+  Keyboard,
+  Palette,
+  PanelRight,
+  Search,
+  Settings2,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { useStore } from "@/lib/store";
+import { useInstallPrompt } from "@/lib/useInstallPrompt";
 import { MODES } from "@/lib/constants";
 import { VIEW_LABELS, type ViewId } from "@/lib/views";
 import { popVariants, softSpring } from "@/lib/motion";
@@ -19,6 +32,7 @@ export default function Topbar({
   onOpenPalette,
   onOpenSettings,
   onOpenShop,
+  onOpenShortcuts,
 }: {
   view: ViewId;
   reduced: boolean;
@@ -27,9 +41,18 @@ export default function Topbar({
   onOpenPalette: () => void;
   onOpenSettings: () => void;
   onOpenShop: () => void;
+  onOpenShortcuts: () => void;
 }) {
   const { state, setPref } = useStore();
+  const { canInstall, installed, install } = useInstallPrompt();
   const [modesOpen, setModesOpen] = useState(false);
+
+  /* The popover UI is a query-param destination, not a viewport guess, so the
+     only way to see it on a laptop is to ask for it explicitly. */
+  const openPopup = () => {
+    const href = `${window.location.pathname}?mode=extension${window.location.hash || "#home"}`;
+    window.open(href, "tasksphere-extension", "popup=yes,width=400,height=600,noopener");
+  };
 
   return (
     <header className="topbar">
@@ -44,6 +67,40 @@ export default function Topbar({
         </div>
 
         <div className="flex items-center gap-2">
+        {canInstall && !installed && (
+          <button
+            type="button"
+            onClick={() => {
+              void install();
+            }}
+            className="install-chip"
+            title="Install TaskSphere as an app"
+          >
+            <Download size={13} aria-hidden />
+            <span>Install</span>
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={openPopup}
+          className="topbar-popover flex h-8 items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 text-[12px] text-muted transition-colors hover:border-line-strong hover:text-ink"
+          title="Open the 400×600 extension popover"
+        >
+          <ExternalLink size={13} aria-hidden />
+          <span>Popover</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={onOpenShortcuts}
+          className="grid size-8 place-items-center rounded-md border border-line bg-surface text-muted transition-colors hover:border-line-strong hover:text-ink"
+          title="Keyboard shortcuts (?)"
+          aria-label="Keyboard shortcuts"
+        >
+          <Keyboard size={14} aria-hidden />
+        </button>
+
         {assistHidden && (
           <button
             type="button"
@@ -70,7 +127,7 @@ export default function Topbar({
         <button
           type="button"
           onClick={onOpenPalette}
-          className="hidden h-8 min-w-[240px] items-center gap-2 rounded-md border border-line bg-bg px-2.5 text-[12px] text-muted transition-colors hover:border-line-strong hover:text-ink md:flex"
+          className="topbar-search flex h-8 min-w-[240px] items-center gap-2 rounded-md border border-line bg-bg px-2.5 text-[12px] text-muted transition-colors hover:border-line-strong hover:text-ink"
         >
           <Search size={13} aria-hidden />
           <span>Search quests, ranks and actions</span>
@@ -80,7 +137,7 @@ export default function Topbar({
         <button
           type="button"
           onClick={onOpenPalette}
-          className="grid size-8 place-items-center rounded-md border border-line bg-surface text-muted md:hidden"
+          className="topbar-search-compact grid size-8 place-items-center rounded-md border border-line bg-surface text-muted"
           aria-label="Open command palette"
         >
           <Command size={14} aria-hidden />
@@ -94,7 +151,7 @@ export default function Topbar({
             className="flex h-8 items-center gap-2 rounded-md border border-line bg-surface px-2.5 text-[12px] text-muted transition-colors hover:border-line-strong hover:text-ink"
           >
             <Palette size={14} aria-hidden />
-            <span className="hidden lg:inline">{MODES[state.uiMode as Mode]}</span>
+            <span className="topbar-theme-label">{MODES[state.uiMode as Mode]}</span>
           </button>
 
           <AnimatePresence>

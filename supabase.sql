@@ -43,6 +43,21 @@ create trigger tasksphere_app_profiles_updated_at
   before update on public.tasksphere_app_profiles
   for each row execute function public.tasksphere_app_set_updated_at();
 
+-- Realtime: the browser subscribes to this row so a write on one device lands on
+-- the other in about a second instead of waiting for a focus or reload. Adding an
+-- already-published table raises duplicate_object, which is the re-run case.
+do $$
+begin
+  alter publication supabase_realtime add table public.tasksphere_app_profiles;
+exception
+  when duplicate_object then null;
+  when undefined_object then null;
+end;
+$$;
+
+-- Full row images, so a realtime event carries the blob the client needs.
+alter table public.tasksphere_app_profiles replica identity full;
+
 -- This project has a legacy public policy on its old tasksphere_profiles table.
 -- Remove that broad policy while leaving the legacy table and its data intact.
 do $$

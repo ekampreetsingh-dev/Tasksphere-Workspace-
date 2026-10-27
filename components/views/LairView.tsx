@@ -274,7 +274,7 @@ export default function LairView({
                 >
                   <span
                     className={`grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-bold ${
-                      reached ? "bg-accent text-white" : "bg-surface-2 text-faint"
+                      reached ? "bg-accent text-[color:var(--on-accent)]" : "bg-surface-2 text-faint"
                     }`}
                   >
                     {index + 1}

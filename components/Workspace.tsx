@@ -23,6 +23,8 @@ import { useToast } from "@/lib/toast";
 import { motionDisabled, viewVariants } from "@/lib/motion";
 import { ASSIST_KEY, NAV_KEY, VIEW_KEY } from "@/lib/storage";
 import { VIEW_LABELS, viewFromHash, viewFromShortcut, type ViewId } from "@/lib/views";
+import { MODES } from "@/lib/constants";
+import type { Mode } from "@/lib/types";
 
 interface ViewProps {
   reduced: boolean;
@@ -50,6 +52,10 @@ const SettingsModal = dynamic<{ open: boolean; onClose: () => void }>(
 );
 const ShopSheet = dynamic<{ open: boolean; onClose: () => void }>(
   () => import("./ShopSheet"),
+  { ssr: false },
+);
+const ShortcutSheet = dynamic<{ open: boolean; onClose: () => void }>(
+  () => import("./ShortcutSheet"),
   { ssr: false },
 );
 const PopupApp = dynamic<Record<string, never>>(() => import("./PopupApp"), { ssr: false });
@@ -82,7 +88,7 @@ const VIEWS_BY_ID: Record<ViewId, ComponentType<ViewProps>> = {
 };
 
 export default function Workspace() {
-  const { state, ready, online, level } = useStore();
+  const { state, ready, online, level, setPref } = useStore();
   const { paradigm } = useViewportMode();
   const { push } = useToast();
   const sfx = useSfx();
@@ -91,6 +97,7 @@ export default function Workspace() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [assistHidden, setAssistHidden] = useState(false);
   const rankRef = useRef(level.level);
   const viewRef = useRef<ViewId>("home");
@@ -163,16 +170,26 @@ export default function Workspace() {
     [sfx],
   );
 
-  /* Jump to the board, make sure the form is open, then put the caret in it. */
+  /* N is "write a quest", not "leave this page". Home already has the composer
+     on screen, so it focuses that instead of teleporting the user to the board
+     and losing their scroll position. */
   const openCapture = useCallback(() => {
     sfx("add");
-    go("quests");
+    const onHome = viewRef.current === "home";
+    if (!onHome) go("quests");
     window.dispatchEvent(new Event("tasksphere:capture"));
-    window.setTimeout(() => {
+    /* The board's composer mounts behind an exit animation, so poll instead of
+       guessing one delay — a fixed timeout focused nothing on a slow device. */
+    const focusComposer = (tries: number) => {
       const box = document.querySelector<HTMLInputElement>('input[placeholder^="What needs doing"]');
-      box?.focus();
-      box?.scrollIntoView({ block: "center" });
-    }, 280);
+      if (box) {
+        box.focus();
+        box.scrollIntoView({ block: "center" });
+        return;
+      }
+      if (tries > 0) window.setTimeout(() => focusComposer(tries - 1), 120);
+    };
+    window.setTimeout(() => focusComposer(onHome ? 3 : 10), onHome ? 60 : 160);
   }, [go, sfx]);
 
   const toggleCollapse = useCallback(() => {
@@ -202,9 +219,11 @@ export default function Workspace() {
         setPaletteOpen((open) => !open);
         return;
       }
+      /* `?` opens the shortcut sheet; the palette keeps its Ctrl/⌘+K home so
+         the two overlays never compete for the same keystroke. */
       if (event.key === "?" && !typing && !event.metaKey && !event.ctrlKey) {
         event.preventDefault();
-        setPaletteOpen(true);
+        setShortcutsOpen((open) => !open);
         return;
       }
       /* Alt+1…5 and Alt+J are dead on Windows and Linux: Chrome claims
@@ -216,6 +235,36 @@ export default function Workspace() {
         if (next) {
           event.preventDefault();
           go(next);
+          return;
+        }
+      }
+      /* Plain letters are the only single-key bindings that reliably reach the
+         page: Chrome takes Alt+number for tab switching and Alt+J for
+         Downloads, and the Ctrl/Meta combinations for itself. */
+      if (!typing && !event.altKey && !event.ctrlKey && !event.metaKey) {
+        const key = event.key.toLowerCase();
+        if (key === "n") {
+          event.preventDefault();
+          openCapture();
+          return;
+        }
+        if (key === "c") {
+          event.preventDefault();
+          setPaletteOpen(true);
+          return;
+        }
+        if (key === "t") {
+          event.preventDefault();
+          const order = Object.keys(MODES);
+          const at = order.indexOf(state.uiMode);
+          setPref({ uiMode: order[(at + 1) % order.length] as Mode });
+          sfx("nav");
+          return;
+        }
+        if (key === "m") {
+          event.preventDefault();
+          setPref({ soundEnabled: !state.soundEnabled });
+          sfx("tap");
           return;
         }
       }
@@ -242,7 +291,7 @@ export default function Workspace() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [go, toggleCollapse, toggleAssist]);
+  }, [go, openCapture, setPref, sfx, state.soundEnabled, state.uiMode, toggleCollapse, toggleAssist]);
 
   useEffect(() => {
     const onHash = () => {
@@ -322,6 +371,7 @@ export default function Workspace() {
           onOpenPalette={() => setPaletteOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenShop={() => setShopOpen(true)}
+          onOpenShortcuts={() => setShortcutsOpen(true)}
         />
 
         <main id="main" className="page-inner" tabIndex={-1} aria-label={VIEW_LABELS[view]}>
@@ -346,8 +396,8 @@ export default function Workspace() {
 
           <footer className="mt-8 border-t border-line pt-4 text-[11px] text-faint">
             <p>
-              1…5 switches views · Alt+B toggles the rail · Alt+S opens the store · Alt+A shows the
-              counsel · Ctrl/⌘+K opens the palette.
+              1…5 views · N new quest · C or Ctrl/⌘+K palette · ? shortcuts · T theme · M mute ·
+              Alt+B rail · Alt+S store · Alt+A counsel
             </p>
           </footer>
         </main>
@@ -374,6 +424,8 @@ export default function Workspace() {
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       <ShopSheet open={shopOpen} onClose={() => setShopOpen(false)} />
+
+      <ShortcutSheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
       <button type="button" className="mobile-fab" onClick={openCapture} aria-label="Add quest">
         <Plus size={22} aria-hidden />

@@ -9,8 +9,12 @@ const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
 let client: SupabaseClient | null = null;
 
+/* Accepts any Supabase project host, not just .supabase.co — projects in the
+   Mumbai and Sydney regions are served from .supabase.in / .supabase.net, and a
+   strict .co-only test silently disabled every sync path for those users. A
+   trailing slash is tolerated for the same reason. */
 export function cloudConfigured(): boolean {
-  return /^https:\/\/[\w-]+\.supabase\.co$/.test(url) && anonKey.length > 30;
+  return /^https:\/\/[\w-]+\.supabase\.[a-z]{2,}\/?$/i.test(url) && anonKey.length > 30;
 }
 
 export function getSupabase(): SupabaseClient | null {
@@ -28,13 +32,20 @@ export function getSupabase(): SupabaseClient | null {
  * so a task created on the laptop could vanish after the phone synced. The blob
  * row stays (no migration against the live database), but reads now merge by task
  * id and honour updated_at instead of blindly replacing local state.
+ *
+ * Per-task, the same trap applied in miniature: comparing `created` meant two
+ * devices holding the same task always tied, and the tie went to local — so an
+ * edit made on the laptop was discarded on the phone forever. Merge on the last
+ * mutation instead, falling back to `created` for blobs written before the
+ * field existed.
  */
 export function mergeTasks(local: Task[], remote: Task[]): Task[] {
+  const stamp = (task: Task) => task.updated ?? task.created;
   const byId = new Map<string, Task>();
   for (const task of remote) byId.set(task.id, task);
   for (const task of local) {
     const existing = byId.get(task.id);
-    if (!existing || task.created >= existing.created) byId.set(task.id, task);
+    if (!existing || stamp(task) >= stamp(existing)) byId.set(task.id, task);
   }
   return [...byId.values()].sort((a, b) => b.created - a.created);
 }

@@ -170,7 +170,7 @@ export default function QuestComposer({ reduced }: { reduced: boolean }) {
         type="submit"
         {...(reduced ? {} : tapFeedback)}
         transition={spring}
-        className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-accent text-[13px] font-bold text-white"
+        className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-accent text-[13px] font-bold text-[color:var(--on-accent)]"
       >
         <Plus size={15} aria-hidden />
         Add quest

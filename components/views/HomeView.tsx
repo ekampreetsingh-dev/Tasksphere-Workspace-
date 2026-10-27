@@ -9,6 +9,7 @@ import {
   Gauge,
   Sword,
   Timer,
+  Trash2,
 } from "lucide-react";
 import Masthead from "../Masthead";
 import Tile from "../ui/Tile";
@@ -44,7 +45,7 @@ export default function HomeView({
   reduced: boolean;
   onGo: (view: ViewId) => void;
 }) {
-  const { state, level, streak, toggleTask } = useStore();
+  const { state, level, streak, toggleTask, removeTask } = useStore();
   const { push } = useToast();
   const sfx = useSfx();
 
@@ -170,26 +171,42 @@ export default function HomeView({
             <ul className="space-y-1.5">
               {shortlist.map((task) => (
                 <li key={task.id}>
-                  <motion.button
-                    type="button"
-                    onClick={(event) => {
-                      const gains = toggleTask(task.id, centerOf(event.currentTarget));
-                      if (gains) {
-                        sfx("check");
-                        push(`+${gains.xpGain} XP · +${gains.goldGain} gold`);
-                      }
-                    }}
-                    whileTap={reduced ? undefined : { scale: 0.985 }}
-                    transition={softSpring}
-                    className="group flex w-full items-center gap-2.5 rounded-lg border border-line bg-surface-2 px-3 py-2.5 text-left text-[13px] transition-colors hover:border-line-strong"
-                  >
-                    <span className={`size-1.5 shrink-0 rounded-full ${PRIORITY_DOT[task.priority]}`} aria-hidden />
-                    <span className="min-w-0 flex-1 truncate">{task.text}</span>
-                    {task.due && <span className="shrink-0 font-meta text-[10.5px] text-faint">{task.due.slice(5)}</span>}
-                    <span className="grid size-4 shrink-0 place-items-center rounded-[5px] border border-line text-[9px] text-faint transition-colors group-hover:border-accent group-hover:text-accent">
-                      <Check size={10} aria-hidden />
-                    </span>
-                  </motion.button>
+                  {/* A row is two actions, not one: complete and delete are
+                      siblings because a button cannot nest inside a button. */}
+                  <div className="group flex items-center gap-1 rounded-lg border border-line bg-surface-2 px-3 py-1.5 transition-colors hover:border-line-strong">
+                    <motion.button
+                      type="button"
+                      onClick={(event) => {
+                        const gains = toggleTask(task.id, centerOf(event.currentTarget));
+                        if (gains) {
+                          sfx("check");
+                          push(`+${gains.xpGain} XP · +${gains.goldGain} gold`);
+                        }
+                      }}
+                      whileTap={reduced ? undefined : { scale: 0.985 }}
+                      transition={softSpring}
+                      className="flex min-w-0 flex-1 items-center gap-2.5 py-1 text-left text-[13px]"
+                    >
+                      <span className={`size-1.5 shrink-0 rounded-full ${PRIORITY_DOT[task.priority]}`} aria-hidden />
+                      <span className="min-w-0 flex-1 truncate">{task.text}</span>
+                      {task.due && <span className="shrink-0 font-meta text-[10.5px] text-faint">{task.due.slice(5)}</span>}
+                      <span className="grid size-4 shrink-0 place-items-center rounded-[5px] border border-line text-[9px] text-faint transition-colors group-hover:border-accent group-hover:text-accent">
+                        <Check size={10} aria-hidden />
+                      </span>
+                    </motion.button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        removeTask(task.id);
+                        sfx("tap");
+                        push("Quest deleted.", "error");
+                      }}
+                      className="upnext-delete shrink-0 rounded-md p-1 text-faint opacity-0 transition hover:bg-surface hover:text-bad focus-visible:opacity-100 group-hover:opacity-100"
+                      aria-label={`Delete ${task.text}`}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>

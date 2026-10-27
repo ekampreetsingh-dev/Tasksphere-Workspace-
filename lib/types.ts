@@ -18,6 +18,10 @@ export interface Task {
   status: Status;
   tags: string[];
   created: number;
+  /** Last mutation, stamped on this device. Cross-device merge compares this.
+      Optional because profile blobs written before it existed carry no such
+      field, and those must still merge. */
+  updated?: number;
   completed: boolean;
   completedAt: number | null;
   subtasks: Subtask[];

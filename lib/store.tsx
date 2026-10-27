@@ -29,11 +29,13 @@ import {
   uuid,
 } from "./storage";
 import {
+  clearQueue,
   cloudConfigured,
   currentAccount,
   flushQueue,
   getSupabase,
   lastSyncError,
+  PROFILE_TABLE,
   pullCloud,
   pushCloud,
   queuedWrite,
@@ -74,12 +76,12 @@ function reducer(state: AppState, action: Action): AppState {
     case "replace":
       return action.state;
     case "add":
-      return { ...state, tasks: [action.task, ...state.tasks] };
+      return { ...state, tasks: [{ ...action.task, updated: Date.now() }, ...state.tasks] };
     case "patch":
       return {
         ...state,
         tasks: state.tasks.map((task) =>
-          task.id === action.id ? { ...task, ...action.patch } : task,
+          task.id === action.id ? { ...task, ...action.patch, updated: Date.now() } : task,
         ),
       };
     case "remove":
@@ -117,6 +119,7 @@ function toggleTaskInState(state: AppState, id: string): AppState {
     completed,
     status: completed ? "done" : "todo",
     completedAt: completed ? Date.now() : null,
+    updated: Date.now(),
     subtasks: completed ? task.subtasks.map((sub) => ({ ...sub, done: true })) : task.subtasks,
   };
   const tasks = state.tasks.map((item) => (item.id === id ? updated : item));
@@ -239,6 +242,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [pulse, setPulse] = useState<XpPulse | null>(null);
   const pulseSeq = useRef(0);
   const lastPushed = useRef(0);
+  const lastPulled = useRef(0);
+  const pulling = useRef(false);
+  const pushing = useRef(false);
   const stateRef = useRef(state);
   stateRef.current = state;
   const accountRef = useRef<Account | null>(null);
@@ -251,6 +257,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setAttempts(0);
       setQueued(null);
       setLastError(null);
+      /* A landed write supersedes any snapshot left by an earlier failure. */
+      clearQueue();
     } else if (result === "error") {
       setSyncStatus("error");
       setAttempts((count) => count + 1);
@@ -264,16 +272,48 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   /** Pull the cloud profile and merge it over local state. */
   const pullAndMerge = useCallback(async () => {
-    const merged = await pullCloud();
-    if (merged) {
-      dispatch({ type: "replace", state: applyDailyRules(merged) });
-      setSyncStatus("synced");
-      setLastSyncedAt(Date.now());
-      setQueued(null);
-      return true;
+    /* Claimed synchronously, before the first await, so a state change that
+       lands during the round-trip cannot start a push of the pre-merge blob. */
+    pulling.current = true;
+    try {
+      const merged = await pullCloud();
+      lastPulled.current = Date.now();
+      if (merged) {
+        dispatch({ type: "replace", state: applyDailyRules(merged) });
+        setSyncStatus("synced");
+        setLastSyncedAt(Date.now());
+        setQueued(null);
+        return true;
+      }
+      return false;
+    } finally {
+      pulling.current = false;
     }
-    return false;
   }, []);
+
+  /**
+   * The only cloud write path. Every guard here exists because the naive version
+   * lost data: a push fired before the first pull overwrote the other device, and
+   * a push fired mid-pull resurrected the blob the pull was about to replace.
+   */
+  const pushNow = useCallback(async (): Promise<void> => {
+    if (!cloudConfigured() || !navigator.onLine || !accountRef.current) return;
+    if (pulling.current || pushing.current) {
+      window.setTimeout(() => void pushNow(), 300);
+      return;
+    }
+    const since = Date.now() - lastPushed.current;
+    if (since < 1200) {
+      window.setTimeout(() => void pushNow(), 1200 - since + 20);
+      return;
+    }
+    pushing.current = true;
+    lastPushed.current = Date.now();
+    setSyncStatus("pending");
+    const result = await pushCloud(stateRef.current);
+    pushing.current = false;
+    recordPush(result);
+  }, [recordPush]);
 
   useEffect(() => {
     const loaded = applyDailyRules(loadState());
@@ -291,8 +331,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         else if (result === "error") recordPush("error");
         else setSyncStatus(cloudConfigured() ? "idle" : "off");
       });
-    };
-    const goOffline = () => setOnline(false);
+    };    const goOffline = () => setOnline(false);
     window.addEventListener("online", goOnline);
     window.addEventListener("offline", goOffline);
     return () => {
@@ -301,7 +340,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
   }, [recordPush]);
 
-  /* Pull once per session, then keep the document theme in step with state. */
+  /* Pull once per session, then keep the document theme in step with state.
+     Re-pulling when the tab returns to the foreground matters on a phone: the
+     app usually sits in a background tab, so without this it shows hours-old
+     data until you manually reload. */
   useEffect(() => {
     if (!ready || !cloudConfigured()) return;
     void (async () => {
@@ -309,11 +351,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const merged = await pullAndMerge();
       if (!merged) setSyncStatus("idle");
       void currentAccount().then(setAccount);
+      /* A failed write from the last session is still in localStorage; retry it
+         now that this session's opening pull has merged. */
+      if (queuedWrite()) void pushNow();
     })();
-  }, [ready, pullAndMerge]);
+
+    /* Hidden → push whatever is pending before the tab is frozen; visible or
+       window focus → pull immediately. This is the whole cross-device story on
+       a phone, where there is no realtime socket to lean on. */
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void pullAndMerge();
+      else void pushNow();
+    };
+    const onFocus = () => void pullAndMerge();
+    /* A closing tab gets one best-effort write. saveState runs first because it
+       is synchronous and survives the socket being torn down mid-request. */
+    const onPageHide = () => {
+      saveState(stateRef.current);
+      void pushNow();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("pagehide", onPageHide);
+    window.addEventListener("beforeunload", onPageHide);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("pagehide", onPageHide);
+      window.removeEventListener("beforeunload", onPageHide);
+    };
+  }, [ready, pullAndMerge, pushNow]);
 
   /* A sign-in mid-session has to pull immediately; waiting for a reload is the
-     same bug that made the shipped app look like it had forgotten your data. */
+     same bug that made the shipped app look like it had forgotten your data.
+     Merging before the first push is what stops a fresh device from erasing the
+     account it just joined. */
   useEffect(() => {
     if (!cloudConfigured()) return;
     let sub: { unsubscribe: () => void } | null = null;
@@ -334,31 +406,62 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => sub?.unsubscribe();
   }, [pullAndMerge]);
 
+  /* Realtime: the profile is a single blob per user, so any change event means
+     "some other device wrote — pull". The lastPushed window swallows the echo of
+     our own upsert, which would otherwise replace live local edits with the
+     snapshot we had just sent. */
+  const accountId = account?.id ?? null;
+  useEffect(() => {
+    if (!ready || !cloudConfigured() || !accountId) return;
+    const supabase = getSupabase();
+    if (!supabase) return;
+    let channel: { unsubscribe: () => void } | null = null;
+    try {
+      channel = supabase
+        .channel(`tasksphere-profile-${accountId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: PROFILE_TABLE,
+            filter: `user_id=eq.${accountId}`,
+          },
+          () => {
+            if (Date.now() - lastPushed.current < 2500) return;
+            if (Date.now() - lastPulled.current < 800) return;
+            void pullAndMerge();
+          },
+        )
+        .subscribe();
+    } catch {
+      return;
+    }
+    return () => {
+      try {
+        channel?.unsubscribe();
+      } catch {
+        /* the socket may already be gone */
+      }
+    };
+  }, [ready, accountId, pullAndMerge]);
+
   useEffect(() => {
     if (ready) applyThemeToDocument(state);
   }, [ready, state]);
 
-  /* Debounced local write, then a cloud write at most every few seconds. */
+  /* Local write is debounced hard (220ms) because localStorage is synchronous;
+     the cloud write is debounced at 600ms so a phone task appears on the laptop
+     inside a second instead of after a coffee. */
   useEffect(() => {
     if (!ready) return;
     const local = window.setTimeout(() => saveState(state), 220);
-    const cloud = window.setTimeout(
-      () => {
-        /* No session, nothing to push: an anonymous device is local-first by
-           design, so it must not be reported as a failed sync. */
-        if (!cloudConfigured() || !navigator.onLine || !accountRef.current) return;
-        if (Date.now() - lastPushed.current < 4000) return;
-        lastPushed.current = Date.now();
-        setSyncStatus("pending");
-        void pushCloud(state).then(recordPush);
-      },
-      2600,
-    );
+    const cloud = window.setTimeout(() => void pushNow(), 600);
     return () => {
       window.clearTimeout(local);
       window.clearTimeout(cloud);
     };
-  }, [ready, state, recordPush]);
+  }, [ready, state, pushNow]);
 
   const retrySync = useCallback(() => {
     if (!cloudConfigured()) return;
@@ -369,11 +472,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setSyncStatus("pending");
     void (async () => {
       const flushed = await flushQueue();
-      const result = flushed === "none" ? await pushCloud(stateRef.current) : flushed;
-      recordPush(result);
-      if (result === "ok") await pullAndMerge();
+      if (flushed === "ok") {
+        recordPush("ok");
+        await pullAndMerge();
+        return;
+      }
+      await pushNow();
+      await pullAndMerge();
     })();
-  }, [pullAndMerge, recordPush]);
+  }, [pullAndMerge, pushNow, recordPush]);
 
   const purchase = useCallback((item: Purchase) => {
     const current = stateRef.current;

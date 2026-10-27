@@ -149,11 +149,12 @@ export default function FocusView({ reduced }: { reduced: boolean }) {
     }
   }, [timer.phase, timer.remaining, state.minuteChime, state.awayChime, sfx]);
 
-  /* Space starts, holds and resumes — the one control worth a keystroke. */
+  /* Space starts, holds and resumes; brackets trim the length. These are the
+     three controls worth a keystroke while your hands are on the keys. */
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
-      if (event.code !== "Space" || !target) return;
+      if (!target) return;
       const typing =
         target.tagName === "INPUT" ||
         target.tagName === "TEXTAREA" ||
@@ -162,12 +163,20 @@ export default function FocusView({ reduced }: { reduced: boolean }) {
         /* a focused button already activates on Space — don't fire twice */
         target.closest("button") !== null;
       if (typing) return;
-      event.preventDefault();
-      primary.run();
+      if (event.code === "Space") {
+        event.preventDefault();
+        primary.run();
+        return;
+      }
+      if (event.key === "[" || event.key === "]") {
+        event.preventDefault();
+        if (locked) return;
+        setLength(minutes + (event.key === "]" ? 5 : -5));
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [primary]);
+  }, [primary, locked, minutes, setLength]);
 
   return (
     <div
@@ -277,41 +286,47 @@ export default function FocusView({ reduced }: { reduced: boolean }) {
         </div>
 
         <div className="stage-foot">
-          <span className="stepper">
+          <div className="length-row">
             <button
               type="button"
+              className="step-btn"
               onClick={() => setLength(minutes - 5)}
               disabled={locked || minutes <= 10}
               aria-label="Five minutes shorter"
             >
               <Minus size={13} aria-hidden />
             </button>
-            <strong>{minutes} min</strong>
+
+            <span className="seg" role="group" aria-label="Common lengths">
+              {LENGTHS.map((length) => (
+                <button
+                  key={length}
+                  type="button"
+                  onClick={() => setLength(length)}
+                  aria-pressed={minutes === length}
+                  disabled={locked}
+                >
+                  {length}
+                </button>
+              ))}
+            </span>
+
             <button
               type="button"
+              className="step-btn"
               onClick={() => setLength(minutes + 5)}
               disabled={locked || minutes >= 175}
               aria-label="Five minutes longer"
             >
               <Plus size={13} aria-hidden />
             </button>
-          </span>
-
-          <span className="seg" role="group" aria-label="Common lengths">
-            {LENGTHS.map((length) => (
-              <button
-                key={length}
-                type="button"
-                onClick={() => setLength(length)}
-                aria-pressed={minutes === length}
-                disabled={locked}
-              >
-                {length}
-              </button>
-            ))}
-          </span>
+          </div>
 
           <span className="stage-foot-meta">
+            <span>
+              <em>Set</em>
+              <b>{minutes} min</b>
+            </span>
             <span>
               <em>Ends</em>
               <b>{endsLabel}</b>

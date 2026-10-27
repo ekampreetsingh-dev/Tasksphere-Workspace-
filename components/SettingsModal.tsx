@@ -307,7 +307,7 @@ export default function SettingsModal({
                           disabled={busy}
                           whileTap={busy ? undefined : { scale: 0.98 }}
                           transition={softSpring}
-                          className="flex h-10 flex-1 items-center justify-center gap-2 rounded-md bg-accent text-[13px] font-bold text-white disabled:opacity-60"
+                          className="flex h-10 flex-1 items-center justify-center gap-2 rounded-md bg-accent text-[13px] font-bold text-[color:var(--on-accent)] disabled:opacity-60"
                         >
                           <LogIn size={14} aria-hidden />
                           Sign in

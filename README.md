@@ -33,10 +33,19 @@ per-component viewport tests. Everything lives in `app/globals.css`:
 | `--text-scale` | type ramp, so 13px cards don't shrink at 4K   |
 | `--card-min-h` | kanban/panel minimum heights                  |
 
-Steps: `1280px`, `1440px`, `1800px`, `2200px`, plus `max-height: 820px` and `700px`
-(the old app had no height breakpoints at all, which is why 1366×768 laptops broke).
-The rail collapse is a user choice persisted to `tasksphere.navCollapsed` — never a
-viewport side effect.
+Steps: `1280px`, `1440px`, `1800px`, `2200px`, plus `max-height: 580px`. That height step used
+to fire at 700px, which a 125%-scaled 1080p laptop reports — so a perfectly normal screen lost
+its rail furniture and card proportions. Only genuinely short windows pay it now.
+
+The three multi-column views (Home, Focus, Lair) do **not** read the viewport: `.page` is a
+named container (`container-type: inline-size; container-name: page`) and they split at
+`@container page` widths of 860px / 820px / 780px, because the rail and counsel can eat 500px
+of a 1440px window. The rail collapse is a user choice persisted to
+`tasksphere.navCollapsed` — never a viewport side effect.
+
+The extension popover is a destination, not a guess: only `?mode=extension` (or a
+`chrome-extension://` origin) renders it. Width alone cannot tell a 390×600 toolbar popup from
+a 390×844 phone with the keyboard open.
 
 ## Structure
 
@@ -54,10 +63,14 @@ public/         manifest.webmanifest, sw.js, icon.svg, icon-maskable.svg
 ## Supabase sync
 
 Same table as the shipped app (`public.tasksphere_app_profiles`, one jsonb blob per user,
-per-user RLS) — `supabase.sql` in this folder is identical to the one already applied, so no
-migration runs against the live database. Reads now merge tasks by id and take the max of numeric
-counters instead of last-write-wins; writes are debounced with one request in flight and a
-queued retry on reconnect.
+per-user RLS). Reads merge tasks by id and take the max of numeric counters instead of
+last-write-wins. Writes are debounced at 600ms with a 1.2s floor and one request in flight;
+`pagehide`, `beforeunload` and a hidden tab flush immediately. A push never starts while a pull
+is in flight, and signing in pulls and merges before the first push.
+
+Cross-device arrival is ~1s: `supabase.sql` adds the table to the `supabase_realtime`
+publication, so the shell subscribes to `postgres_changes` filtered by `user_id`, with `focus`
+and `visibilitychange` pulls as the fallback where a socket is not available.
 
 Only the public anon/publishable key is used. **Never put a service-role key in this
 project** — everything here ships to the browser.

@@ -36,6 +36,7 @@
   /* Forge ground: a warm charred black carrying cool iron panels, brass as the
      structural accent, verdigris for completion and lacquer for danger. Four
      hues with assigned jobs, so the default skin is not black-plus-one-neon. */
+  color-scheme: dark;
   --bg: #100e0c;
   --panel: #17191e;
   --panel-2: #1f232a;
@@ -51,6 +52,12 @@
   --blue: #86a5cd;
   --red: #cf5b45;
   --gold: #f0c860;
+
+  /* Every accent-filled control reads its foreground from here instead of
+     hard-coding white. Brass needs a near-black label; black needs white. */
+  --on-accent: #17120a;
+  --btn-bg: var(--panel-2);
+  --btn-text: var(--text);
 
   /* Elevation ladder. Every surface picks one rung; nothing invents its own
      shadow, which is what makes a grid stop looking authored. */
@@ -108,6 +115,7 @@
 }
 
 html[data-mode="cyber"] {
+  color-scheme: dark;
   --bg: #100e0c;
   --panel: #17191e;
   --panel-2: #1f232a;
@@ -128,6 +136,7 @@ html[data-mode="cyber"] {
 /* Daylight: the reference palette — cool grey ground, white cards, one violet
    accent, 20px radii and soft two-layer shadows. */
 html[data-mode="light"] {
+  color-scheme: light;
   --bg: #f4f5f8;
   --panel: #ffffff;
   --panel-2: #eef0f4;
@@ -143,6 +152,7 @@ html[data-mode="light"] {
   --blue: #3d6ea8;
   --red: #b53f2f;
   --gold: #9a7a15;
+  --on-accent: #ffffff;
   --edge-hi: rgba(255, 255, 255, 0.95);
   --edge-lo: rgba(23, 26, 38, 0.06);
   /* The reference product separates surfaces with hairlines, not shadows, so
@@ -162,6 +172,7 @@ html[data-mode="light"] {
 }
 
 html[data-mode="zen"] {
+  color-scheme: light;
   --bg: #f4f0e8;
   --panel: #fbf9f4;
   --panel-2: #ede7dc;
@@ -175,6 +186,7 @@ html[data-mode="zen"] {
   --green: #3f7a52;
   --orange: #b86b3d;
   --red: #c94a4a;
+  --on-accent: #ffffff;
   --field:
     radial-gradient(ellipse at 10% 4%, rgba(137, 177, 127, 0.16), transparent 42%),
     radial-gradient(ellipse at 90% 70%, rgba(210, 169, 138, 0.14), transparent 44%);
@@ -191,6 +203,7 @@ html[data-mode="zen"] {
 }
 
 html[data-mode="retro"] {
+  color-scheme: dark;
   --bg: #0c021f;
   --panel: #15092e;
   --panel-2: #221042;
@@ -203,6 +216,7 @@ html[data-mode="retro"] {
   --accent2: #00f0ff;
   --green: #00f5b8;
   --orange: #ffb84d;
+  --on-accent: #ffffff;
   --field:
     radial-gradient(120% 80% at 50% -20%, rgba(255, 42, 133, 0.2), transparent 60%),
     radial-gradient(100% 70% at 50% 120%, rgba(0, 240, 255, 0.14), transparent 62%),
@@ -223,6 +237,7 @@ html[data-mode="retro"] {
 }
 
 html[data-mode="brutalist"] {
+  color-scheme: light;
   --bg: #f2f2ec;
   --panel: #ffffff;
   --panel-2: #e6e6df;
@@ -235,6 +250,16 @@ html[data-mode="brutalist"] {
   --accent2: #333333;
   --green: #0d6efd;
   --orange: #d9534f;
+  --blue: #1a4fbf;
+  /* --gold is deliberately inherited: the capture FAB paints near-black text on
+     a gold-to-accent gradient, so darkening gold here would black out its icon. */
+  /* Ink-on-paper: the accent is pure black, so an accent fill must carry white
+     text. These two tokens are the whole fix for the "invisible button" report
+     — before they existed the skin inherited the dark theme's brass label and
+     every filled control read black-on-black. */
+  --on-accent: #ffffff;
+  --btn-bg: #ffffff;
+  --btn-text: #111111;
   /* A printed sheet has no atmosphere and no bevel — the ladder collapses to
      the offset block, which is the whole point of the skin. */
   --field: none;
@@ -311,7 +336,10 @@ html[data-mode="brutalist"] {
   }
 }
 
-@media (max-height: 700px) {
+/* 580, not 700: a 1080p laptop at 125% scaling reports ~640-695px of viewport,
+   which is a normal screen and must keep the rail pet, the footer and full
+   card proportions. Only genuinely short windows pay this price. */
+@media (max-height: 580px) {
   :root {
     --card-min-h: 88px;
     --row-h: 34px;
@@ -369,15 +397,10 @@ body::before {
   mix-blend-mode: overlay;
 }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
-  color: inherit;
-}
-
-button {
+/* No `color: inherit` here: Tailwind's preflight already sets it inside
+   @layer base, and an unlayered copy outranks every utility — which is exactly
+   how a filled button's text-* class got silently ignored. */
+:where(button) {
   cursor: pointer;
   user-select: none;
 }
@@ -841,7 +864,7 @@ button {
   height: 28px;
   border-radius: 9px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .rail-brand-name {
@@ -884,7 +907,7 @@ button {
   border: 1px solid var(--accent);
   border-radius: 10px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 12.5px;
   font-weight: 600;
   box-shadow: var(--elev-1);
@@ -1112,6 +1135,11 @@ button {
 .page {
   min-width: 0;
   padding: 0 var(--page-pad) 40px;
+  /* The work column is the only width a view actually gets. With the rail and
+     counsel open, a 1440px screen leaves ~870px here, so view layouts query
+     this container instead of the viewport. */
+  container-type: inline-size;
+  container-name: page;
 }
 
 .page-inner {
@@ -1138,6 +1166,59 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+/* The counsel makes the header the tightest thing in the shell: at 1280 the
+   rail and counsel leave ~624px for controls that want ~760 once the Install
+   chip appears. Shedding the optional ones by *header* width keeps the row
+   inside its column; overflow here scrolls the document sideways under the
+   sticky rail, which reads as the header and counsel being misaligned. */
+.topbar {
+  container-type: inline-size;
+  container-name: topbar;
+}
+
+.topbar-search-compact {
+  display: none;
+}
+
+.install-chip,
+.gold-chip {
+  white-space: nowrap;
+}
+
+@container topbar (max-width: 900px) {
+  .topbar-popover {
+    display: none;
+  }
+}
+
+@container topbar (max-width: 860px) {
+  .topbar-theme-label {
+    display: none;
+  }
+}
+
+@container topbar (max-width: 800px) {
+  .topbar-search {
+    display: none;
+  }
+
+  .topbar-search-compact {
+    display: grid;
+  }
+}
+
+/* A phone header has no room for the Install label once the browser offers the
+   prompt; the icon alone keeps the affordance without pushing the row wide. */
+@container topbar (max-width: 520px) {
+  .install-chip span {
+    display: none;
+  }
+
+  .install-chip {
+    padding-inline: 9px;
+  }
 }
 
 /* ============================================================
@@ -1697,6 +1778,26 @@ html[data-motion="reduced"] .sk::after {
 }
 
 /* Gold chip in the header — the shop is always one click away. */
+/* Install affordance — only rendered when the browser has actually offered it. */
+.install-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.16s ease;
+}
+
+.install-chip:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
 .gold-chip {
   display: inline-flex;
   align-items: center;
@@ -1965,7 +2066,13 @@ html[data-motion="full"] .dial-head {
 
 /* One footer row: length control, quick presets and the three numbers that
    matter. Replaces the old stacked length block plus four-item stat grid. */
+/* Had a gap but no display, so it stayed block and the two inline-flex groups
+   sat on a text baseline — 3px apart vertically with no gap between them. */
 .stage-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
   gap: 12px 18px;
   padding-top: 16px;
   border-top: 1px solid var(--line);
@@ -1995,6 +2102,8 @@ html[data-motion="full"] .dial-head {
 
 .stage-foot-meta {
   display: flex;
+  flex-basis: 100%;
+  justify-content: center;
   gap: 20px;
 }
 
@@ -2022,55 +2131,51 @@ html[data-motion="full"] .dial-head {
   font-variant-numeric: tabular-nums;
 }
 
-.stepper {
-  display: inline-flex;
+/* One axis: −5 · presets · +5. Nothing here is allowed to wrap — the old
+   stepper and the preset pills sat on separate baselines and drifted apart. */
+.length-row {
+  display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 2px;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+.step-btn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: color-mix(in srgb, var(--panel-2) 60%, transparent);
-}
-
-.stepper button {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 26px;
-  border-radius: 8px;
   color: var(--muted);
+  transition: color 0.18s ease, border-color 0.18s ease;
 }
 
-.stepper button:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
+.step-btn:hover:not(:disabled) {
+  border-color: var(--line-strong);
   color: var(--text);
 }
 
-.stepper button:disabled {
+.step-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
 
-.stepper strong {
-  min-width: 58px;
-  font-family: var(--meta-font);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  color: var(--text);
-  text-align: center;
-}
-
 .seg {
-  display: inline-flex;
-  gap: 2px;
-  padding: 2px;
+  display: inline-grid;
+  grid-template-columns: repeat(4, minmax(44px, 1fr));
+  gap: 6px;
+  padding: 4px;
   border: 1px solid var(--line);
   border-radius: 10px;
 }
 
 .seg button {
-  height: 26px;
-  padding: 0 11px;
+  height: 38px;
+  padding: 0 10px;
   border-radius: 8px;
   font-family: var(--meta-font);
   font-size: 12px;
@@ -2090,6 +2195,46 @@ html[data-motion="full"] .dial-head {
 .seg button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* Phones: shrink the same single axis rather than letting it wrap. */
+@media (max-width: 479px) {
+  .length-row {
+    gap: 8px;
+  }
+  .step-btn {
+    width: 34px;
+    height: 34px;
+  }
+  .seg {
+    grid-template-columns: repeat(4, minmax(38px, 1fr));
+    gap: 4px;
+  }
+  .seg button {
+    height: 34px;
+    padding: 0 6px;
+    font-size: 11.5px;
+  }
+  .stage-foot-meta {
+    flex-wrap: wrap;
+    gap: 8px 14px;
+  }
+}
+
+@media (max-width: 359px) {
+  .length-row {
+    gap: 6px;
+  }
+  .step-btn {
+    width: 32px;
+    height: 32px;
+  }
+  .seg {
+    grid-template-columns: repeat(4, minmax(36px, 1fr));
+  }
+  .seg button {
+    height: 32px;
+  }
 }
 
 /* ============================================================
@@ -2707,7 +2852,7 @@ html[data-motion="full"] .dial-head {
   min-width: 0;
 }
 
-@media (min-width: 1080px) {
+@container page (min-width: 760px) {
   /* The stage is full-bleed by design, so the view keeps one column and only
      the two reference panels below it split. */
   .lair-wide {
@@ -2716,12 +2861,51 @@ html[data-motion="full"] .dial-head {
 }
 
 @media (min-width: 1180px) {
-  .view-home {
-    grid-template-columns: minmax(0, 1fr) 340px;
-  }
   .view-progress {
     grid-template-columns: repeat(12, minmax(0, 1fr));
   }
+  .col-12 {
+    grid-column: span 12;
+  }
+  .col-8 {
+    grid-column: span 8;
+  }
+  .col-7 {
+    grid-column: span 7;
+  }
+  .col-6 {
+    grid-column: span 6;
+  }
+  .col-5 {
+    grid-column: span 5;
+  }
+  .col-4 {
+    grid-column: span 4;
+  }
+}
+
+/* Full-bleed rows inside a two-column view. Safe in one column too, so it is
+   not scoped to a query — the split it belongs to is container-driven now. */
+.span-all {
+  grid-column: 1 / -1;
+}
+
+/* Home, Focus and Lair split on the width the work column actually has, not
+   the viewport. With the rail and counsel open a 1440px laptop leaves ~870px
+   here, which is why viewport queries split it into unusable columns. */
+@container page (min-width: 860px) {
+  .view-home {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+}
+
+@container page (min-width: 1120px) {
+  .view-home {
+    grid-template-columns: minmax(0, 1fr) 384px;
+  }
+}
+
+@container page (min-width: 820px) {
   /* Focus is a two-row composition, not three squeezed columns: the mode rail
      and the dial share the first row, and the support panels take a full-width
      second row. Three columns left the dial 218px on a laptop. */
@@ -2745,40 +2929,9 @@ html[data-motion="full"] .dial-head {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
   }
-  .view-focus[data-stage="solo"] > .stage {
-    grid-column: 1;
-  }
-  .view-focus[data-stage="solo"] > .stack {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .col-12 {
-    grid-column: span 12;
-  }
-  .col-8 {
-    grid-column: span 8;
-  }
-  .col-7 {
-    grid-column: span 7;
-  }
-  .col-6 {
-    grid-column: span 6;
-  }
-  .col-5 {
-    grid-column: span 5;
-  }
-  .col-4 {
-    grid-column: span 4;
-  }
-  /* Full-bleed rows inside a two-column view. */
-  .span-all {
-    grid-column: 1 / -1;
-  }
 }
 
-@media (min-width: 1500px) {
-  .view-home {
-    grid-template-columns: minmax(0, 1fr) 384px;
-  }
+@container page (min-width: 1000px) {
   .view-focus {
     grid-template-columns: 240px minmax(0, 1fr);
   }
@@ -2786,6 +2939,14 @@ html[data-motion="full"] .dial-head {
 
 /* Distraction-free focus drops the side columns entirely. */
 .view-focus[data-stage="solo"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.view-focus[data-stage="solo"] > .stage {
+  grid-column: 1;
+}
+
+.view-focus[data-stage="solo"] > .stack {
   grid-template-columns: minmax(0, 1fr);
 }
 
@@ -2931,6 +3092,30 @@ html[data-motion="full"] .dial-head {
 
 .tile-spark i[data-today="true"] {
   background: var(--tone);
+}
+
+/* Touch screens never fire :hover, so the card controls that fade in on hover
+   were permanently invisible on a phone — including delete. The width clause
+   also covers a touch laptop and a desktop window narrowed to tablet size,
+   where the pointer is a mouse but the card is still thumb-sized. */
+@media (max-width: 1023px), (hover: none) {
+  .quest-delete,
+  .upnext-delete {
+    opacity: 1;
+    display: grid;
+    place-items: center;
+    min-width: 32px;
+    min-height: 32px;
+    width: auto;
+    height: 32px;
+    margin: -8px -6px -8px 0;
+  }
+
+  .quest-delete svg,
+  .upnext-delete svg {
+    width: 16px;
+    height: 16px;
+  }
 }
 
 /* Slim inline summary used by Progress and the Lair. */
@@ -3110,6 +3295,10 @@ html[data-motion="full"] .dial-head {
    near-black on the light grid and stays distinct on the dark one.
    ============================================================ */
 .bounty {
+  /* The island is always dark, whatever the page theme. Without this the UA
+     repaints native form controls and scrollbars from the *page* scheme, which
+     on a light skin put light-on-light widgets inside the dark tile. */
+  color-scheme: dark;
   --bounty-ink: #eef0f8;
   --bounty-muted: #98a1bd;
   --bounty-line: rgba(255, 255, 255, 0.09);
@@ -3467,11 +3656,11 @@ html[data-motion="full"] .dial-head {
 .cal-row button[aria-pressed="true"] {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .cal-row button[aria-pressed="true"] .cal-load {
-  color: #fff;
+  color: var(--on-accent);
   opacity: 0.85;
 }
 
@@ -3567,6 +3756,9 @@ html[data-motion="full"] .dial-head {
    reads as a place on every skin.
    ============================================================ */
 .lair-stage {
+  /* Same reason as .bounty: a permanently dark island declares its own scheme so
+     native controls inside it never get repainted by a light page. */
+  color-scheme: dark;
   --lair-ink: #eef0f8;
   --lair-muted: #98a1bd;
   --lair-line: rgba(255, 255, 255, 0.1);
@@ -3924,11 +4116,14 @@ html[data-motion="full"] .dial-head {
   border-color: color-mix(in srgb, var(--lair-violet) 55%, transparent);
 }
 
-/* Wide: the card and the mate sit in a left column, the dragon takes the rest. */
-@media (min-width: 1080px) {
+/* Wide: the card and the mate sit in a left column, the dragon takes the rest.
+   The glass card used align-self:end, which punched a 76px hole between it and
+   the companion block; the left column was also so wide it starved the dragon
+   of room and the figure capped at 300px. */
+@container page (min-width: 780px) {
   .lair-stage {
-    grid-template-columns: minmax(320px, 400px) minmax(0, 1fr);
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
     align-items: start;
   }
   .lair-head {
@@ -3939,13 +4134,15 @@ html[data-motion="full"] .dial-head {
   }
   .lair-glass {
     grid-area: 3 / 1;
-    align-self: end;
   }
+  /* The figure owns the right column and nothing else: it is centred in its
+     own track, so the glass card can never sit on top of a wing. */
   .lair-figure {
     grid-area: 1 / 2 / span 3;
     align-self: center;
     justify-self: center;
-    width: min(100%, 460px);
+    width: min(100%, 380px);
+    max-height: 100%;
   }
 }
 
@@ -4480,7 +4677,7 @@ html[data-paradigm="tablet"] .rail-user {
 
 .popup-seg button[aria-pressed="true"] {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 600;
   box-shadow: var(--elev-1);
 }
@@ -4687,7 +4884,7 @@ html[data-paradigm="tablet"] .rail-user {
   height: 40px;
   border-radius: 11px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   box-shadow: var(--elev-2);
 }
 
@@ -4800,6 +4997,21 @@ html[data-mode="cyber"][data-crt="true"] body::after {
 html[data-mode="brutalist"] .panel,
 html[data-mode="brutalist"] .rail {
   box-shadow: var(--elev-3);
+}
+
+/* Brutalist Architect is the one skin where accent and body text are the same
+   near-black, so an inherited label disappears on any filled control. Filled
+   controls pair --accent with --on-accent; these are the two that paint their
+   own surface and therefore need the pair stated outright. */
+html[data-mode="brutalist"] .mobile-fab {
+  /* The gold-to-accent gradient would end black-on-black here. */
+  border-color: #111111;
+  background: #111111;
+  color: #ffffff;
+}
+
+html[data-mode="brutalist"] .rail-item[data-active="true"] .rail-icon {
+  color: #111111;
 }
 
 body[data-theme="cyberpunk"] {

@@ -167,7 +167,7 @@ function QuestCard({ task, reduced, onToggle, onDragStart, onRemove }: QuestCard
       <button
         type="button"
         onClick={() => onRemove(task.id)}
-        className="h-fit rounded-md p-1 text-faint opacity-0 transition hover:bg-surface-2 hover:text-bad focus-visible:opacity-100 group-hover:opacity-100"
+        className="quest-delete h-fit rounded-md p-1 text-faint opacity-0 transition hover:bg-surface-2 hover:text-bad focus-visible:opacity-100 group-hover:opacity-100"
         aria-label={`Delete ${task.text}`}
       >
         <Trash2 size={13} />
