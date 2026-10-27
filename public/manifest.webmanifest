@@ -1,0 +1,47 @@
+{
+  "name": "TaskSphere — Focus & quests",
+  "short_name": "TaskSphere",
+  "description": "A focused, gamified workspace for daily quests.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "any",
+  "background_color": "#f4f5f8",
+  "theme_color": "#f4f5f8",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Quest board",
+      "short_name": "Quests",
+      "url": "/#quests",
+      "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Focus room",
+      "short_name": "Focus",
+      "url": "/#focus",
+      "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "The Lair",
+      "short_name": "Lair",
+      "url": "/#lair",
+      "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}

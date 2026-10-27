@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "TaskSphere — quick capture",
+  "version": "1.0.0",
+  "description": "Clear today's quests, capture new ones and see your streak from the toolbar.",
+  "action": {
+    "default_popup": "popup/index.html",
+    "default_title": "TaskSphere"
+  },
+  "host_permissions": ["https://*.supabase.co/*"]
+}
