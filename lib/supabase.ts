@@ -118,7 +118,10 @@ export async function pullCloud(): Promise<AppState | null> {
     activity,
     xp: Math.max(local.xp, remote.xp),
     gold: Math.max(local.gold, remote.gold),
+    /* Look-and-feel stays per device. Syncing these made the laptop flip to
+       whatever palette the phone last equipped — random black themes. */
     uiMode: local.uiMode,
+    theme: local.theme,
     motionLevel: local.motionLevel,
   };
 }

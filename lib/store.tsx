@@ -101,6 +101,7 @@ function reducer(state: AppState, action: Action): AppState {
       if (item.skin) {
         next.unlockedThemes = [...new Set([...next.unlockedThemes, item.skin])];
         next.theme = item.skin;
+        if (item.skin !== "default") next.uiMode = "cyber";
       }
       return next;
     }
@@ -485,7 +486,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const purchase = useCallback((item: Purchase) => {
     const current = stateRef.current;
     if (item.skin && current.unlockedThemes.includes(item.skin)) {
-      dispatch({ type: "pref", patch: { theme: item.skin } });
+      dispatch({
+        type: "pref",
+        patch: {
+          theme: item.skin,
+          ...(item.skin !== "default" ? { uiMode: "cyber" as Mode } : {}),
+        },
+      });
       return { ok: true, message: `${item.name} equipped.` };
     }
     if (item.shield && current.streakShield) {

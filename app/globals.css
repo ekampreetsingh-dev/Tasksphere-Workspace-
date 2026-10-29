@@ -5014,7 +5014,11 @@ html[data-mode="brutalist"] .rail-item[data-active="true"] .rail-icon {
   color: #111111;
 }
 
-body[data-theme="cyberpunk"] {
+/* Reward-shop palettes are accents on the dark Forge ground, the way the
+   legacy app described them. Declaring them on bare `body[data-theme]` let a
+   synced palette repaint Daylight, Zen, Retro and Brutalist black; scoping
+   each to cyber keeps the workspace mode in charge everywhere else. */
+html[data-mode="cyber"] body[data-theme="cyberpunk"] {
   --bg: #060b14;
   --panel: #0b1522;
   --panel-2: #12202f;
@@ -5026,7 +5030,7 @@ body[data-theme="cyberpunk"] {
   --muted: #7fa6bd;
 }
 
-body[data-theme="amoled"] {
+html[data-mode="cyber"] body[data-theme="amoled"] {
   --bg: #000000;
   --panel: #0a0a0a;
   --panel-2: #151515;
@@ -5037,7 +5041,7 @@ body[data-theme="amoled"] {
   --shadow: none;
 }
 
-body[data-theme="sunset"] {
+html[data-mode="cyber"] body[data-theme="sunset"] {
   --bg: #150c1c;
   --panel: #1e1327;
   --panel-2: #2a1b34;
